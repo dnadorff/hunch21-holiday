@@ -1,0 +1,31 @@
+{
+  "name": "Hunch 21 Holiday",
+  "short_name": "Hunch Holiday",
+  "description": "Holiday edition of the pass-the-phone guessing game: estimate holiday facts from 0 to 10 and stop before 21.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4EFE6",
+  "theme_color": "#1D5A3A",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hunch 21 Holiday</title>
+<meta name="description" content="Holiday edition of the pass-the-phone guessing game: estimate holiday facts from 0 to 10 and stop before 21.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hunch Holiday">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F4EFE6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1A14" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: one phone-width column, a sticky top bar, a score strip, one big card, and a chunky 0-10 keypad under it. */
+:root{
+  --bg:#F4EFE6; --surface:#FFFFFF; --ink:#1B2620; --muted:#58625A; --line:#D9D0C0;
+  --card:#1D5A3A; --card-ink:#FFFFFF; --card-glow:#3F8F61;
+  --accent:#C2302E; --accent-ink:#FFFFFF;
+  --good:#1D8A66; --bad:#C43A2C; --warn:#9A6A12; --focus:#1F6FEB;
+  --font-display:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Baloo 2","Trebuchet MS","Segoe UI",sans-serif;
+  --font-body:-apple-system,system-ui,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1A14; --surface:#18271F; --ink:#EEF3EF; --muted:#A9B6AD; --line:#2F4537;
+    --card:#23704A; --card-ink:#FFFFFF; --card-glow:#4FB07A;
+    --accent:#FF7B70; --accent-ink:#1A0B09;
+    --good:#45C294; --bad:#F27362; --warn:#E0B04F; --focus:#7AB4FF;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1A14; --surface:#18271F; --ink:#EEF3EF; --muted:#A9B6AD; --line:#2F4537;
+  --card:#23704A; --card-ink:#FFFFFF; --card-glow:#4FB07A;
+  --accent:#FF7B70; --accent-ink:#1A0B09;
+  --good:#45C294; --bad:#F27362; --warn:#E0B04F; --focus:#7AB4FF;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0;
+  -webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.app{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;gap:14px;padding-bottom:28px}
+h1,h2,h3{font-family:var(--font-display);line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:2.6rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.5rem;font-weight:800}
+h3{font-size:1.1rem;font-weight:800}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:.9rem}
+.num-tab{font-variant-numeric:tabular-nums}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+[tabindex="-1"]:focus{outline:none}
+
+/* top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;justify-content:space-between;gap:8px;padding-block:10px 6px;border-bottom:1px solid var(--line)}
+.brand{font-family:var(--font-display);font-weight:800;font-size:1.25rem;display:flex;align-items:center;gap:8px}
+.brand .mark{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--card);color:var(--card-ink);font-size:1.05rem;box-shadow:0 2px 0 var(--card-glow) inset}
+.topbar .meta{font-size:.9rem;color:var(--muted)}
+.iconbtn{font:inherit;font-weight:700;background:var(--surface);color:var(--ink);border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer}
+
+/* buttons */
+.btn{font:inherit;font-weight:700;font-size:1.05rem;border:0;border-radius:14px;padding:14px 18px;cursor:pointer;width:100%;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);transition:transform .08s ease}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn-accent{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px;min-width:0}
+.stack{display:flex;flex-direction:column;gap:12px}
+
+/* setup */
+.hero{padding-block:22px 6px}
+.hero .tag{font-family:var(--font-display);font-weight:600;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;font-size:.85rem}
+.panel{background:var(--surface);border:1.5px solid var(--line);border-radius:18px;padding:16px}
+label{font-weight:700;font-size:.95rem}
+.field{display:flex;flex-direction:column;gap:6px}
+input[type=text]{font:inherit;font-size:1.05rem;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper button{font-family:var(--font-display);font-size:1.5rem;font-weight:800;width:48px;height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.stepper output{font-family:var(--font-display);font-size:1.8rem;font-weight:800;min-width:2ch;text-align:center}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);padding:4px;border-radius:12px;border:1.5px solid var(--line)}
+.seg button{font:inherit;font-weight:700;padding:10px 8px;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.names{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:380px){.names{grid-template-columns:1fr}}
+
+/* score strip */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px}
+.chip{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:8px 10px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.chip.current{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.chip .name{font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip .est{font-family:var(--font-display);font-size:1.5rem;font-weight:800;line-height:1}
+.chip .sub{font-size:.78rem;color:var(--muted)}
+.chip.stopped{opacity:.75}
+.chip.stopped .est{color:var(--muted)}
+.pill{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:999px;border:1.5px solid currentColor;align-self:flex-start}
+.pill.turn{color:var(--accent)}
+.pill.stop{color:var(--muted)}
+.pill.pts{color:var(--good)}
+
+/* the card */
+.card{background:var(--card);color:var(--card-ink);border-radius:22px;padding:26px 20px 22px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;
+  box-shadow:0 10px 24px -14px var(--card-glow), inset 0 0 0 5px var(--card), inset 0 0 0 7px rgba(255,255,255,.28)}
+.card .q{font-family:var(--font-display);font-size:1.45rem;font-weight:800;line-height:1.2;text-wrap:balance;max-width:28ch}
+.card .mark{font-family:var(--font-display);font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1}
+.card .note{font-size:.9rem;opacity:.9}
+.card.flip{animation:deal .35s ease-out}
+@keyframes deal{from{transform:translateY(-10px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+
+.turnline{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.turnline .who{font-family:var(--font-display);font-size:1.35rem;font-weight:800}
+.turnline .tally{font-size:.95rem;color:var(--muted)}
+.turnline .tally b{font-family:var(--font-display);font-size:1.25rem;color:var(--ink)}
+
+/* keypad */
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.num{font-family:var(--font-display);font-size:1.7rem;font-weight:800;padding:12px 0;border-radius:14px;background:var(--surface);color:var(--ink);border:2px solid var(--line);cursor:pointer;min-height:58px;transition:transform .08s ease}
+.num:active{transform:scale(.95)}
+.num.stopbtn{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:1.15rem;letter-spacing:.02em}
+.num.stopbtn[disabled]{background:var(--surface);color:var(--muted);border-color:var(--line);opacity:.7;cursor:not-allowed}
+.hint{font-size:.9rem;color:var(--muted);text-align:center}
+
+/* hand-off */
+.handoff{text-align:center;padding-block:30px 10px;display:flex;flex-direction:column;gap:14px;align-items:center}
+.handoff .big{font-family:var(--font-display);font-size:2.2rem;font-weight:800;line-height:1.05}
+.handoff .last{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;width:100%}
+
+/* reveal */
+.rev{background:var(--surface);border:1.5px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.rev header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.rev .total{font-family:var(--font-display);font-size:1.6rem;font-weight:800}
+.rev .total small{font-family:var(--font-body);font-size:.85rem;font-weight:400;color:var(--muted)}
+.rev ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rev li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;border-top:1px solid var(--line);padding-top:8px}
+.val{font-family:var(--font-display);font-weight:800;font-size:1.3rem;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--card);color:var(--card-ink)}
+.val.guess{background:var(--bg);color:var(--muted);font-size:.95rem}
+.why{font-size:.9rem;color:var(--muted)}
+.badge{font-family:var(--font-display);font-weight:800;font-size:.95rem;padding:4px 10px;border-radius:999px;border:2px solid currentColor}
+.badge.safe{color:var(--good)}
+.badge.bust{color:var(--bad)}
+.badge.win{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.badge.exact{color:var(--card-ink);background:var(--card);border-color:var(--card)}
+
+/* results */
+.banner{background:var(--card);color:var(--card-ink);border-radius:18px;padding:18px;text-align:center;display:flex;flex-direction:column;gap:6px}
+.banner .big{font-family:var(--font-display);font-size:1.9rem;font-weight:800;line-height:1.1}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+th{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+td.n,th.n{text-align:right}
+tr.champ td{font-weight:700}
+
+/* rules dialog */
+dialog{border:0;border-radius:18px;padding:0;background:var(--surface);color:var(--ink);width:min(92vw,520px);max-height:85vh}
+dialog::backdrop{background:rgba(10,14,22,.6)}
+.dlg{padding:18px;display:flex;flex-direction:column;gap:12px;max-height:85vh;overflow:auto}
+.dlg ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.dlg .close{align-self:flex-end}
+.confirm{display:flex;gap:8px;flex-wrap:wrap}
+@media (prefers-reduced-motion: reduce){.card.flip{animation:none}.btn,.num{transition:none}}
+.sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+/* linked games */
+.lastline{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;font-size:.95rem}
+.codebig{font-family:var(--font-display);font-weight:800;font-size:2.6rem;letter-spacing:.08em;text-align:center;background:var(--card);color:var(--card-ink);border-radius:18px;padding:14px 10px;font-variant-numeric:tabular-nums}
+input.code{font-family:var(--font-display);font-weight:800;font-size:1.6rem;letter-spacing:.12em;text-align:center;text-transform:uppercase}
+.seats{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:4px;font-weight:700}
+.check{font-size:.9rem;color:var(--muted);text-align:center}
+.check b{font-family:var(--font-display);font-size:1.1rem;color:var(--ink);letter-spacing:.06em}
+.msg{font-size:.95rem;font-weight:700}
+.msg.bad{color:var(--bad)}
+.msg.good{color:var(--good)}
+.card .mark{color:#FFD3CC}
+.brand,.topbar .meta,.iconbtn{white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="mark" aria-hidden="true">❄</span><span>Hunch 21</span><span class="sr"> Holiday</span></div>
+    <div class="meta num-tab" id="meta"></div>
+    <button class="iconbtn" id="rulesBtn" type="button">How to play</button>
+  </header>
+
+  <div class="sr" role="status" aria-live="polite" id="live"></div>
+
+  <!-- SETUP -->
+  <section id="s-setup" class="stack">
+    <div class="hero stack">
+      <p class="tag">Holiday edition · Stop before 21</p>
+      <h1 tabindex="-1">Hunch 21 Holiday</h1>
+      <p class="muted">Every question has an answer from 0 to 10. Guess it, take the card, and keep going until your gut says stop. Closest to 21 without going over wins. Everyone plays for themselves. Every question is about Christmas, Hanukkah, Kwanzaa, or winter traditions around the world.</p>
+    </div>
+    <div id="resumeBox" class="panel stack" hidden>
+      <h3>A game is in progress</h3>
+      <p class="muted small" id="resumeText"></p>
+      <div class="row">
+        <button class="btn btn-primary" id="resumeBtn" type="button">Resume game</button>
+        <button class="btn" id="discardBtn" type="button">Start over</button>
+      </div>
+    </div>
+    <div class="panel stack">
+      <div class="field">
+        <label for="countOut">Players (2 to 6)</label>
+        <div class="stepper">
+          <button type="button" id="minus" aria-label="Fewer players">&minus;</button>
+          <output id="countOut" for="minus plus">4</output>
+          <button type="button" id="plus" aria-label="More players">+</button>
+        </div>
+      </div>
+      <div class="names" id="names"></div>
+      <div class="field">
+        <label id="modeLabel">Game length</label>
+        <div class="seg" role="group" aria-labelledby="modeLabel">
+          <button type="button" id="modeSingle" aria-pressed="true">One game</button>
+          <button type="button" id="modeSeries" aria-pressed="false">Series to 3 points</button>
+        </div>
+        <p class="muted small" id="modeHelp">One round of guessing. Closest to 21 without going over takes it.</p>
+      </div>
+      <button class="btn btn-accent" id="startBtn" type="button">Deal the first card</button>
+    </div>
+    <div class="panel stack">
+      <h3>Playing from different places?</h3>
+      <p class="muted small">Get on a phone or video call. A linked game deals the same questions on every phone. Each player says their guess out loud, and everyone taps it in on their own phone.</p>
+      <div class="row">
+        <button class="btn" id="hostBtn" type="button">Start a linked game</button>
+        <button class="btn" id="joinBtn" type="button">Join with a code</button>
+      </div>
+    </div>
+    <p class="muted small"><span id="bankCount">372</span> holiday questions, and no question repeats until the whole deck has been used. The phone keeps the answers hidden until the reveal. Works offline once installed. Build 213a9c1f.</p>
+  </section>
+
+  <!-- LINKED GAME SETUP -->
+  <section id="s-link" class="stack" hidden>
+    <h2 id="linkTitle" tabindex="-1"></h2>
+    <div class="stack" id="linkBody"></div>
+  </section>
+
+  <!-- HAND-OFF -->
+  <section id="s-handoff" class="handoff" hidden>
+    <div class="last" id="lastAction"></div>
+    <p class="muted">Pass the phone to</p>
+    <h2 class="big" id="handName" tabindex="-1"></h2>
+    <button class="btn btn-primary" id="handBtn" type="button">Show me the question</button>
+  </section>
+
+  <!-- TURN -->
+  <section id="s-turn" class="stack" hidden>
+    <div class="strip" id="strip"></div>
+    <p class="lastline" id="linkLast" hidden></p>
+    <div class="turnline">
+      <h2 class="who" id="turnWho" tabindex="-1"></h2>
+      <div class="tally num-tab" id="turnTally"></div>
+    </div>
+    <div class="card" id="card">
+      <div class="mark" aria-hidden="true">?</div>
+      <p class="q" id="cardQ"></p>
+      <p class="note" id="cardNote" hidden></p>
+    </div>
+    <p class="hint" id="padHint">Tap your guess. The real answer stays hidden until the end.</p>
+    <div class="pad" id="pad" role="group" aria-label="Your guess, 0 to 10"></div>
+    <div class="stack" id="linkTools" hidden></div>
+  </section>
+
+  <!-- REVEAL -->
+  <section id="s-reveal" class="stack" hidden>
+    <h2 tabindex="-1">The reveal</h2>
+    <p class="muted small">Cards flip in the order players stopped. First to stop goes first.</p>
+    <div class="stack" id="revealList"></div>
+    <button class="btn btn-primary" id="revealBtn" type="button">Flip the next player's cards</button>
+    <div class="stack" id="revealTools" hidden></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="s-results" class="stack" hidden>
+    <div class="banner" id="banner"></div>
+    <div class="panel stack" id="standingsBox">
+      <h3 id="standingsTitle">Standings</h3>
+      <div style="overflow-x:auto"><table id="standings"></table></div>
+      <p class="muted small" id="standingsNote"></p>
+    </div>
+    <div class="row" id="resultActions"></div>
+  </section>
+
+  <!-- RULES -->
+  <dialog id="rules" aria-labelledby="rulesTitle">
+    <div class="dlg">
+      <h2 id="rulesTitle">How to play</h2>
+      <ul>
+        <li><b>Every card is a question</b> whose answer is a whole number from 0 to 10. The phone hides the real answer until the end.</li>
+        <li><b>On your turn</b>, read the question, tap your best guess, and the card goes into your hand. Your running total of guesses is shown on your chip.</li>
+        <li><b>You can stop</b> once you hold at least two cards. When you stop, you are done for the game, and the question you declined passes to the next player.</li>
+        <li><b>The game ends</b> when everyone has stopped. Cards flip in the order players stopped, showing the real answers.</li>
+        <li><b>Closest to 21 without going over wins.</b> Ties share the win. If everyone goes over, nobody wins.</li>
+        <li><b>Series to 3 points:</b> the winner of each game scores 2 points. Everyone else scores 1 point if they stayed at or under 21, and 0 if they went over. First to 3 points takes the series. If several players reach 3 points in the same game and are tied at the top, they play a tiebreaker game among themselves.</li>
+        <li><b>Hitting exactly 21</b> in a series wins the whole series on the spot (if two players hit 21 in the same game, it counts as a shared game win instead).</li>
+        <li><b>Linked game on separate phones:</b> get on a phone or video call. One person taps Start a linked game and reads out the code. Everyone else taps Join with a code and types the player names in the same order. On each turn, the player says their guess or "stop" out loud, and everyone taps it in. The match check under the keypad should read the same on every phone. If it doesn't, someone tapped something different, so use Undo last tap until the checks match again.</li>
+        <li><b>Card statistics:</b> the deck leans toward the middle. Answers of 3 to 7 are the most common, and the average card is worth about 5.</li>
+      </ul>
+      <div class="confirm" id="quitBox" hidden>
+        <button class="btn" id="quitBtn" type="button">End this game and go to setup</button>
+      </div>
+      <button class="btn close" id="rulesClose" type="button">Close</button>
+    </div>
+  </dialog>
+</div>
+<script>
+
+const BANK = [
+// value 0
+{q:"Number of times you're allowed to touch an Elf on the Shelf, according to its story",a:0,why:"Zero. The story says a touch makes the scout elf lose its magic."},
+{q:"Number of reindeer games the other reindeer let Rudolph join before that foggy Christmas Eve",a:0,why:"None. They only cheered for him after Santa asked him to guide the sleigh."},
+{q:"Number of real reindeer pulling the Grinch's sleigh",a:0,why:"None. He ties one horn on his dog, Max, and makes him pull it."},
+{q:"Number of creatures stirring in the house in Twas the Night Before Christmas",a:0,why:"Not a creature was stirring, not even a mouse."},
+{q:"Number of coins Scrooge first offers the gentlemen collecting for the poor",a:0,why:"Nothing. He asks if there are no prisons and no workhouses."},
+{q:"Number of presents left in Who-ville after the Grinch's raid",a:0,why:"He took every present, the trees, and even the roast beast."},
+{q:"Number of competitive Oscars won by It's a Wonderful Life",a:0,why:"Five nominations and no wins. Its crew did win a technical award for a new way to make fake snow."},
+{q:"Number of Oscars won by Home Alone",a:0,why:"Two nominations for John Williams, for the score and the song Somewhere in My Memory."},
+{q:"Number of Oscars won by The Polar Express",a:0,why:"Three nominations, for its song and two sound awards, and no wins."},
+{q:"Number of coins you take from the pot when the dreidel lands on nun",a:0,why:"Nun stands for nisht, Yiddish for nothing."},
+{q:"Number of legs on a classic three-ball snowman",a:0,why:"Snowmen just sit there on their bottom ball."},
+{q:"Number of the Twelve Days of Christmas that come before December 25",a:0,why:"None. The twelve days start at Christmas and run to Epiphany in January."},
+{q:"Number of Australian Christmases that fall in winter",a:0,why:"Zero. December is summer in Australia, so beach barbecues are a Christmas classic."},
+{q:"Number of wise men the Bible says visited baby Jesus",a:0,why:"The Gospel of Matthew never says how many. People guessed three from the three gifts."},
+{q:"Number of U.S. states where Christmas Day is not a public holiday",a:0,why:"None. Christmas has been a federal holiday since 1870."},
+// value 1
+{q:"Number of horses pulling the sleigh in Jingle Bells",a:1,why:"It's a one-horse open sleigh."},
+{q:"Number of days the temple oil was expected to last in the Hanukkah story",a:1,why:"One day's worth of oil burned for eight days."},
+{q:"Number of coins you put into the pot when the dreidel lands on shin",a:1,why:"Shin stands for shtel, or put in. Add one coin."},
+{q:"Number of letters that differ on a dreidel made in Israel",a:1,why:"Israeli dreidels swap shin for pe, so the letters mean A great miracle happened here instead of there."},
+{q:"Number of shamash candles on a Hanukkah menorah",a:1,why:"The shamash, or helper candle, lights all the others."},
+{q:"Number of ornaments Charlie Brown hangs on his little tree before it droops",a:1,why:"One red ball, and the tree bends right over."},
+{q:"Number of legs on the leg lamp in A Christmas Story",a:1,why:"One fishnet-stockinged leg. Ralphie's dad calls it a major award."},
+{q:"Number of brothers Ralphie has in A Christmas Story",a:1,why:"Just Randy, who eats like a little piggy."},
+{q:"Number of hippopotamuses the singer wants in I Want a Hippopotamus for Christmas",a:1,why:"Just one hippo. Gayla Peevey was 10 when she recorded it in 1953."},
+{q:"Peak Billboard pop chart position of Gene Autry's Rudolph the Red-Nosed Reindeer",a:1,why:"It hit No. 1 in January 1950."},
+{q:"Peak Billboard Hot 100 position of Rockin' Around the Christmas Tree",a:1,why:"Brenda Lee finally hit No. 1 in December 2023, 65 years after she recorded it at age 13."},
+{q:"Peak Billboard Hot 100 position of The Chipmunk Song (Christmas Don't Be Late)",a:1,why:"Alvin and his brothers hit No. 1 in December 1958."},
+{q:"Number of Oscars won by the song White Christmas",a:1,why:"Irving Berlin won Best Original Song for it in the 1942 movie Holiday Inn."},
+{q:"Number of Emmys won by A Charlie Brown Christmas",a:1,why:"It won the 1966 Emmy for Outstanding Children's Program."},
+{q:"Number of days after Christmas that Boxing Day falls",a:1,why:"Boxing Day is December 26 in Britain, Canada, and Australia."},
+{q:"Number of partridges in a pear tree",a:1,why:"Just one, given on the first day of Christmas."},
+{q:"Number of black candles on a Kwanzaa kinara",a:1,why:"One black candle in the center stands for the people."},
+{q:"Number of empty place settings many Polish families set at the Christmas Eve table",a:1,why:"One extra place is saved for an unexpected guest or wanderer."},
+// value 2
+{q:"Number of Wet Bandits in Home Alone",a:2,why:"Harry and Marv."},
+{q:"Number of turtle doves in The Twelve Days of Christmas",a:2,why:"Given on the second day."},
+{q:"Number of front teeth wanted in the classic Christmas novelty song",a:2,why:"All I Want for Christmas Is My Two Front Teeth."},
+{q:"Number of times Santa checks his list in Santa Claus Is Comin' to Town",a:2,why:"He checks it twice."},
+{q:"Number of sizes too small the Grinch's heart was",a:2,why:"Two sizes too small, according to Dr. Seuss."},
+{q:"Age of Cindy Lou Who in How the Grinch Stole Christmas",a:2,why:"Dr. Seuss says she was no more than two."},
+{q:"Class of angel that Clarence is in It's a Wonderful Life",a:2,why:"Angel Second Class. He earns his wings by the end."},
+{q:"Number of astronauts who played Jingle Bells in space on Gemini 6 in 1965",a:2,why:"Wally Schirra and Tom Stafford played it on a harmonica and little bells."},
+{q:"Number of eyes made of coal on Frosty the Snowman",a:2,why:"Two coal eyes, plus a corncob pipe and a button nose."},
+{q:"Number of people needed to pull a Christmas cracker",a:2,why:"Two people pull, it snaps, and the bigger half wins the prize."},
+{q:"Number of Marley brothers in The Muppet Christmas Carol",a:2,why:"Jacob and Robert Marley, played by Statler and Waldorf."},
+{q:"Number of Miser brothers in The Year Without a Santa Claus",a:2,why:"Heat Miser and Snow Miser."},
+{q:"Number of colors on a classic candy cane",a:2,why:"Red and white."},
+{q:"Number of acts in The Nutcracker ballet",a:2,why:"Two acts. The second is the Land of Sweets."},
+{q:"Number of Christmas Chronicles movies starring Kurt Russell as Santa",a:2,why:"2018 and 2020, both on Netflix."},
+{q:"Number of Gospels that tell the story of Jesus's birth",a:2,why:"Matthew and Luke. Mark and John start when Jesus is grown."},
+{q:"Number of Santa's reindeer whose names start with C",a:2,why:"Comet and Cupid."},
+{q:"Number of singers in Elmo & Patsy, who recorded Grandma Got Run Over by a Reindeer",a:2,why:"Elmo Shropshire, a veterinarian, and Patsy Trigg."},
+// value 3
+{q:"Number of gifts the Magi bring baby Jesus",a:3,why:"Gold, frankincense, and myrrh."},
+{q:"Number of spirits Marley warns Scrooge will visit him",a:3,why:"Christmas Past, Christmas Present, and Christmas Yet to Come."},
+{q:"Number of sizes the Grinch's heart grows on Christmas morning",a:3,why:"It grew three sizes that day."},
+{q:"Number of times Santa says ho in his famous laugh",a:3,why:"Ho, ho, ho!"},
+{q:"Number of snowballs stacked to make a classic snowman",a:3,why:"Big on the bottom, medium in the middle, small for the head."},
+{q:"Number of French hens in The Twelve Days of Christmas",a:3,why:"Given on the third day."},
+{q:"Number of red candles on a Kwanzaa kinara",a:3,why:"Three red on the left, three green on the right, and one black in the middle."},
+{q:"Number of colors on the Kwanzaa flag",a:3,why:"Red, black, and green."},
+{q:"Number of horses that pull Ded Moroz, Russia's Grandfather Frost, in a troika",a:3,why:"Troika means a team of three."},
+{q:"Hour in the afternoon when Swedish TV airs its Christmas Eve Donald Duck special",a:3,why:"At 3 p.m., about a third of Sweden watches the same 1958 Disney special."},
+{q:"Number of ships in the carol I Saw Three Ships",a:3,why:"The title gives it away."},
+{q:"Number of Santa Clause films starring Tim Allen",a:3,why:"1994, 2002, and 2006, before the Disney+ series."},
+{q:"Number of Santa's reindeer whose names start with D",a:3,why:"Dasher, Dancer, and Donner."},
+{q:"Number of Pevensie children who meet Father Christmas in The Lion, the Witch and the Wardrobe",a:3,why:"Peter, Susan, and Lucy. Edmund was off with the White Witch."},
+{q:"Number of zeros in Santa's Canadian postal code, H0H 0H0",a:3,why:"Canada Post answers letters sent to Santa at H0H 0H0."},
+{q:"Number in the dare that gets Flick's tongue stuck to the flagpole in A Christmas Story",a:3,why:"A triple-dog-dare. Schwartz skipped the triple-dare entirely."},
+{q:"Number of Oscars won by Miracle on 34th Street (1947)",a:3,why:"Including Best Supporting Actor for Edmund Gwenn as Kris Kringle."},
+{q:"Number of Grammys won by The Chipmunk Song at the first Grammy Awards in 1959",a:3,why:"Including Best Recording for Children."},
+{q:"Number of times we wish you a merry Christmas before the happy new year in the carol",a:3,why:"Three merry Christmases, then a happy new year."},
+// value 4
+{q:"Number of calling birds in The Twelve Days of Christmas",a:4,why:"Given on the fourth day. Older versions said colly birds, meaning blackbirds."},
+{q:"Number of sides on a dreidel",a:4,why:"One Hebrew letter on each side: nun, gimel, hei, and shin."},
+{q:"Number of words in the Hebrew phrase whose first letters are on a dreidel",a:4,why:"Nes gadol haya sham, meaning a great miracle happened there."},
+{q:"Number of candles on a traditional Advent wreath, not counting a center candle",a:4,why:"One for each Sunday of Advent."},
+{q:"Number of food groups elves stick to in Elf",a:4,why:"Candy, candy canes, candy corns, and syrup."},
+{q:"Number of times Noel is sung in the chorus of The First Noel",a:4,why:"Noel, Noel, Noel, Noel."},
+{q:"Number of months ending in -ber when Filipinos celebrate Christmas",a:4,why:"The Philippines starts celebrating in September, one of the longest Christmas seasons in the world."},
+{q:"Number of candles burning on the third night of Hanukkah, counting the shamash",a:4,why:"Three for the night plus the shamash."},
+{q:"Number of chambers in a reindeer's stomach",a:4,why:"Reindeer chew their cud like cows, with a four-part stomach for lichen and moss."},
+{q:"Number of notes in the famous repeating pattern of Carol of the Bells",a:4,why:"Four notes, over and over. It comes from a Ukrainian New Year song called Shchedryk."},
+{q:"Number of Santa's original reindeer whose names end in R",a:4,why:"Dasher, Dancer, Prancer, and Donner."},
+{q:"Number of legs Rudolph has, despite all the attention on his nose",a:4,why:"Four legs, one shiny nose."},
+{q:"Number of letters in the word Noel",a:4,why:"N-O-E-L. It comes from a Latin word meaning birthday."},
+{q:"Number of letters in the word gelt",a:4,why:"G-E-L-T. Gelt is Yiddish for money, and Hanukkah gelt is often chocolate coins."},
+// value 5
+{q:"Number of golden rings in The Twelve Days of Christmas",a:5,why:"Given on the fifth day."},
+{q:"Number of kinds of people given as gifts in The Twelve Days of Christmas",a:5,why:"Maids, ladies, lords, pipers, and drummers."},
+{q:"Number of Maccabee brothers, the sons of Mattathias",a:5,why:"John, Simon, Judah, Eleazar, and Jonathan. Judah led the revolt."},
+{q:"Day in December when Dutch children open gifts from Sinterklaas",a:5,why:"Pakjesavond, or present evening, is December 5, the night before St. Nicholas Day."},
+{q:"Day in December of Krampus Night in Austria",a:5,why:"December 5, when costumed Krampuses roam the streets looking for naughty kids."},
+{q:"Number of points on a traditional Filipino parol lantern",a:5,why:"The classic parol is a five-pointed star for the Star of Bethlehem."},
+{q:"Number of McCallister kids in Kevin's family in Home Alone",a:5,why:"Buzz, Megan, Linnie, Jeff, and Kevin."},
+{q:"Number of chapters, called staves, in A Christmas Carol",a:5,why:"Dickens called them staves, like verses of a song."},
+{q:"Number of Christmas books Charles Dickens wrote in the 1840s",a:5,why:"A Christmas Carol, The Chimes, The Cricket on the Hearth, The Battle of Life, and The Haunted Man."},
+{q:"Number of singers in Pentatonix",a:5,why:"The a cappella group is famous for its Christmas albums."},
+{q:"Number of letters in the name Santa",a:5,why:"S-A-N-T-A."},
+{q:"Number of letters in the reindeer name Vixen",a:5,why:"V-I-X-E-N."},
+{q:"Number of letters in the word latke",a:5,why:"L-A-T-K-E. Latkes are fried in oil to remember the oil that lasted eight nights."},
+{q:"Number of syllables in Feliz Navidad",a:5,why:"Fe-liz Na-vi-dad. José Feliciano's 1970 song made it a classic in English and Spanish."},
+// value 6
+{q:"Number of points on the Star of David",a:6,why:"Two overlapping triangles make a six-pointed star, a common sight on Hanukkah decorations."},
+{q:"Number of Cratchit children in A Christmas Carol",a:6,why:"Martha, Belinda, Peter, two younger Cratchits, and Tiny Tim."},
+{q:"Number of Herdman kids in The Best Christmas Pageant Ever",a:6,why:"Ralph, Imogene, Leroy, Claude, Ollie, and Gladys, the worst kids in the history of the world."},
+{q:"Number of arms on a snowflake",a:6,why:"Ice crystals form six-sided shapes."},
+{q:"Day in January when many countries celebrate Three Kings Day",a:6,why:"January 6, also called Epiphany. In Italy, La Befana the gift-giving witch flies in the night before."},
+{q:"Day in December of St. Nicholas Day",a:6,why:"Kids in many countries leave out shoes the night before, hoping for treats."},
+{q:"Number of strings on the instrument first used to play Silent Night in 1818",a:6,why:"A guitar. The story goes that the church organ in Oberndorf, Austria, was broken."},
+{q:"Number of verses in the original German version of Silent Night",a:6,why:"Joseph Mohr wrote six. Most English hymnals print three."},
+{q:"Number of weeks Charles Dickens took to write A Christmas Carol",a:6,why:"About six weeks in the fall of 1843."},
+{q:"Day of Kwanzaa when families share the big karamu feast",a:6,why:"The sixth day, December 31."},
+{q:"Number of geese a-laying in The Twelve Days of Christmas",a:6,why:"Given on the sixth day."},
+{q:"Number of different kinds of birds given in The Twelve Days of Christmas",a:6,why:"Partridge, doves, hens, calling birds, geese, and swans."},
+{q:"Number of letters in the word Grinch",a:6,why:"G-R-I-N-C-H."},
+{q:"Number of letters in the word eggnog",a:6,why:"E-G-G-N-O-G."},
+{q:"Number of letters in God Jul, which means Merry Christmas in Swedish",a:6,why:"G-O-D J-U-L."},
+// value 7
+{q:"Number of days of Kwanzaa",a:7,why:"December 26 through January 1, with one candle lit each day on the kinara."},
+{q:"Number of principles of Kwanzaa",a:7,why:"Unity, self-determination, collective work, cooperative economics, purpose, creativity, and faith."},
+{q:"Number of letters in the word Kwanzaa",a:7,why:"Founder Maulana Karenga added an extra A so the name would have seven letters."},
+{q:"Number of swans a-swimming in The Twelve Days of Christmas",a:7,why:"Given on the seventh day."},
+{q:"Number of fish dishes in the Italian-American Feast of the Seven Fishes",a:7,why:"Traditionally seven seafood dishes on Christmas Eve."},
+{q:"Number of points on a traditional Mexican Christmas piñata",a:7,why:"Seven cone points, said to stand for the seven deadly sins that get broken."},
+{q:"Day in January when Ethiopian and many Orthodox Christians celebrate Christmas",a:7,why:"January 7, because their church calendars run about two weeks behind the one most countries use."},
+{q:"Number of years Jacob Marley has been dead when A Christmas Carol begins",a:7,why:"Seven years that very night."},
+{q:"Number of holiday doors in the tree trunks in The Nightmare Before Christmas",a:7,why:"Halloween, Christmas, Thanksgiving, Easter, Valentine's Day, St. Patrick's Day, and the Fourth of July."},
+{q:"Number of heads on the Mouse King in the original Nutcracker story by E.T.A. Hoffmann",a:7,why:"Seven heads, each wearing a little crown."},
+{q:"Number of years it takes to grow a typical six-foot Christmas tree",a:7,why:"About seven years on a tree farm."},
+{q:"Number of letters in the name Rudolph",a:7,why:"R-U-D-O-L-P-H. His creator almost named him Rollo or Reginald."},
+{q:"Number of letters in the name Scrooge",a:7,why:"S-C-R-O-O-G-E. Bah, humbug!"},
+{q:"Number of days from Christmas Day to New Year's Day",a:7,why:"December 25 to January 1 is exactly one week."},
+// value 8
+{q:"Number of letters in the word Hanukkah",a:8,why:"H-A-N-U-K-K-A-H. Chanukah has eight letters too."},
+{q:"Number of nights of Hanukkah",a:8,why:"One more candle each night until all eight burn together."},
+{q:"Number of reindeer pulling Santa's sleigh in Twas the Night Before Christmas",a:8,why:"Dasher, Dancer, Prancer, Vixen, Comet, Cupid, Donder, and Blitzen. Donder later became Donner, and Rudolph came along in 1939."},
+{q:"Number of maids a-milking in The Twelve Days of Christmas",a:8,why:"Given on the eighth day."},
+{q:"Age of Kevin McCallister in Home Alone",a:8,why:"He's eight when his family flies to Paris without him."},
+{q:"Number of times five golden rings is sung in a full Twelve Days of Christmas",a:8,why:"Once on every day from the fifth through the twelfth."},
+{q:"Number of la's sung after each fa in Deck the Halls",a:8,why:"Fa-la-la-la-la, la-la-la-la."},
+{q:"Number of Santa's eight original reindeer with two-syllable names",a:8,why:"All of them, from Dash-er to Blitz-en."},
+{q:"Number of legs on Sleipnir, the horse the Norse god Odin rode in Yule legends",a:8,why:"Eight legs. Some folklorists link him to Santa's eight reindeer."},
+{q:"Number of crazy nights in the title of Adam Sandler's animated Hanukkah movie",a:8,why:"Eight Crazy Nights, from 2002."},
+{q:"Number of legs on the hero of the Ukrainian Christmas spider legend",a:8,why:"A spider covered a poor family's tree in webs that turned to silver. That's why Ukrainians hang spider ornaments."},
+{q:"Number of letters in the word reindeer",a:8,why:"R-E-I-N-D-E-E-R."},
+{q:"Number of letters in the word ornament",a:8,why:"O-R-N-A-M-E-N-T."},
+// value 9
+{q:"Number of nights of Las Posadas in Mexico",a:9,why:"December 16 to 24, acting out Mary and Joseph's search for a place to stay."},
+{q:"Number of dawn Masses of Simbang Gabi in the Philippines",a:9,why:"From December 16 to Christmas Eve, often followed by rice cakes for breakfast."},
+{q:"Number of branches on a Hanukkah menorah",a:9,why:"Eight for the nights plus one for the shamash."},
+{q:"Number of Santa's reindeer, counting Rudolph",a:9,why:"The original eight plus the one with the shiny nose."},
+{q:"Number of ladies dancing in The Twelve Days of Christmas",a:9,why:"Given on the ninth day."},
+{q:"Number of lessons in the famous Christmas Eve service from King's College, Cambridge",a:9,why:"A Festival of Nine Lessons and Carols, held since 1918."},
+{q:"Number of letters in the word Christmas",a:9,why:"C-H-R-I-S-T-M-A-S. The T is silent."},
+{q:"Number of letters in the word mistletoe",a:9,why:"M-I-S-T-L-E-T-O-E."},
+{q:"Number of letters in the word fruitcake",a:9,why:"F-R-U-I-T-C-A-K-E."},
+{q:"Number of letters in the word Bethlehem",a:9,why:"B-E-T-H-L-E-H-E-M."},
+{q:"Number of letters in the word snowflake",a:9,why:"S-N-O-W-F-L-A-K-E."},
+{q:"Number of candles burning on the last night of Hanukkah, counting the shamash",a:9,why:"All eight plus the helper candle."},
+{q:"Number of letters in the name Wenceslas",a:9,why:"W-E-N-C-E-S-L-A-S, the good king who looked out on the Feast of Stephen."},
+// value 10
+{q:"Number of letters in the word sugarplums",a:10,why:"S-U-G-A-R-P-L-U-M-S. Visions of them danced in children's heads."},
+{q:"Number of letters in the word Tannenbaum",a:10,why:"T-A-N-N-E-N-B-A-U-M. It's German for fir tree, as in O Tannenbaum."},
+{q:"Number of lords a-leaping in The Twelve Days of Christmas",a:10,why:"Given on the tenth day."},
+{q:"Number of birds given on the fourth day of The Twelve Days of Christmas, counting the repeats",a:10,why:"Four calling birds, three French hens, two turtle doves, and a partridge."},
+{q:"Number of fingers and thumbs covered by a pair of mittens",a:10,why:"Four fingers share one pocket and the thumb gets its own, on each hand."},
+{q:"Number of letters in Joyeux Noël, which means Merry Christmas in French",a:10,why:"J-O-Y-E-U-X N-O-E-L."},
+{q:"Number of letters in Buon Natale, which means Merry Christmas in Italian",a:10,why:"B-U-O-N N-A-T-A-L-E."},
+{q:"Number of letters in Kalikimaka, the Hawaiian word for Christmas",a:10,why:"K-A-L-I-K-I-M-A-K-A. Mele Kalikimaka means Merry Christmas."},
+{q:"Number of letters in the word nutcracker",a:10,why:"N-U-T-C-R-A-C-K-E-R."},
+{q:"Number of letters in the word poinsettia",a:10,why:"P-O-I-N-S-E-T-T-I-A. The plant is named for Joel Poinsett, who brought it from Mexico."},
+{q:"Number of letters in Saint Lucia, whose festival lights up Sweden on December 13",a:10,why:"S-A-I-N-T L-U-C-I-A. Girls wear crowns of candles in her honor."},
+{q:"Number of letters in Las Posadas",a:10,why:"L-A-S P-O-S-A-D-A-S. It means the inns."},
+];
+const Engine = (() => {
+  function shuffle(arr, rnd) {
+    rnd = rnd || Math.random;
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  function freshDeck(rnd) { return shuffle([...Array(BANK.length).keys()], rnd); }
+
+  function newState(names, mode, rnd) {
+    return {
+      v: 1, screen: 'handoff', mode: mode,
+      players: names.map(n => ({ name: n, points: 0 })),
+      deck: freshDeck(rnd), discard: [],
+      gameNo: 0, champion: null, tiebreak: null, game: null
+    };
+  }
+
+  function startGame(st, rnd) {
+    st.gameNo++;
+    const active = st.tiebreak ? st.tiebreak.slice() : st.players.map((_, i) => i);
+    const starter = active[(st.gameNo - 1) % active.length];
+    const hands = {};
+    for (const i of active) hands[i] = { cards: [], guesses: [], est: 0, stopped: false, stopOrder: null };
+    st.game = {
+      active, starter, current: starter, hands,
+      stopCount: 0, pending: null, passedFrom: null,
+      revealStep: 0, result: null, delta: null, instant: false,
+      lastAction: { type: 'start', who: st.players[starter].name, gameNo: st.gameNo, tiebreak: !!st.tiebreak }
+    };
+    st.screen = 'handoff';
+    drawIfNeeded(st, rnd);
+    return st;
+  }
+
+  function drawIfNeeded(st, rnd) {
+    const g = st.game;
+    if (g.pending !== null) return;
+    if (st.deck.length === 0) st.deck = shuffle(st.discard.splice(0), rnd);
+    if (st.deck.length === 0) st.deck = freshDeck(rnd);
+    g.pending = st.deck.pop();
+  }
+
+  const hand = (st, i) => st.game.hands[i];
+  const canStop = st => hand(st, st.game.current).cards.length >= 2;
+
+  function guess(st, v, rnd) {
+    const g = st.game, h = hand(st, g.current);
+    if (!Number.isInteger(v) || v < 0 || v > 10) return false;
+    h.cards.push(g.pending); h.guesses.push(v); h.est += v;
+    g.pending = null; g.passedFrom = null;
+    g.lastAction = { type: 'guess', who: st.players[g.current].name, v, est: h.est, cards: h.cards.length };
+    advance(st, rnd);
+    return true;
+  }
+
+  function stop(st, rnd) {
+    const g = st.game, h = hand(st, g.current);
+    if (!canStop(st)) return false;
+    h.stopped = true; h.stopOrder = ++g.stopCount;
+    g.passedFrom = st.players[g.current].name;
+    g.lastAction = { type: 'stop', who: st.players[g.current].name, est: h.est, cards: h.cards.length };
+    advance(st, rnd);
+    return true;
+  }
+
+  function advance(st, rnd) {
+    const g = st.game, n = g.active.length, pos = g.active.indexOf(g.current);
+    for (let k = 1; k <= n; k++) {
+      const cand = g.active[(pos + k) % n];
+      if (!g.hands[cand].stopped) {
+        g.current = cand; drawIfNeeded(st, rnd); st.screen = 'handoff'; return;
+      }
+    }
+    if (g.pending !== null) { st.deck.push(g.pending); g.pending = null; }
+    finish(st);
+  }
+
+  function finish(st) {
+    const g = st.game;
+    const order = g.active.slice().sort((a, b) => g.hands[a].stopOrder - g.hands[b].stopOrder);
+    const totals = {};
+    for (const i of g.active) totals[i] = g.hands[i].cards.reduce((s, c) => s + BANK[c].a, 0);
+    const safe = g.active.filter(i => totals[i] <= 21);
+    let best = -1; for (const i of safe) best = Math.max(best, totals[i]);
+    const winners = best < 0 ? [] : safe.filter(i => totals[i] === best);
+    const exact = g.active.filter(i => totals[i] === 21);
+    g.result = { order, totals, winners, best, exact };
+    for (const i of g.active) st.discard.push(...g.hands[i].cards);
+    if (st.mode === 'series') applySeries(st, winners, totals, exact);
+    g.revealStep = 0; st.screen = 'reveal';
+  }
+
+  function applySeries(st, winners, totals, exact) {
+    const g = st.game, isTB = !!st.tiebreak, delta = {};
+    if (!isTB) {
+      for (const i of g.active) { delta[i] = winners.includes(i) ? 2 : (totals[i] <= 21 ? 1 : 0); st.players[i].points += delta[i]; }
+    }
+    g.delta = delta;
+    if (exact.length === 1) { st.champion = exact[0]; g.instant = true; st.tiebreak = null; return; }
+    if (isTB) {
+      if (winners.length === 1) { st.champion = winners[0]; st.tiebreak = null; }
+      else if (winners.length > 1) st.tiebreak = winners;
+      return;
+    }
+    const pts = st.players.map(p => p.points), max = Math.max(...pts);
+    if (max >= 3) {
+      const top = pts.map((p, i) => p === max ? i : -1).filter(i => i >= 0);
+      if (top.length === 1) st.champion = top[0]; else st.tiebreak = top;
+    }
+  }
+
+  function revealNext(st) {
+    const g = st.game;
+    if (g.revealStep < g.result.order.length) g.revealStep++;
+    else st.screen = 'results';
+  }
+
+  function nextGame(st, rnd) {
+    if (st.mode === 'series' && st.champion !== null) return false;
+    startGame(st, rnd); return true;
+  }
+
+  function newSeries(st, rnd) {
+    for (const p of st.players) p.points = 0;
+    st.gameNo = 0; st.champion = null; st.tiebreak = null; st.game = null;
+    startGame(st, rnd); return st;
+  }
+
+  // A saved game may predate questions added later: shuffle any card it has never seen into its draw pile.
+  function topUp(st, rnd) {
+    const known = new Set([...st.deck, ...st.discard]);
+    if (st.game) {
+      if (st.game.pending !== null) known.add(st.game.pending);
+      for (const i of st.game.active) for (const c of st.game.hands[i].cards) known.add(c);
+    }
+    const missing = [];
+    for (let i = 0; i < BANK.length; i++) if (!known.has(i)) missing.push(i);
+    // drop any index that no longer exists (defensive, in case a question is ever removed)
+    st.deck = st.deck.filter(i => i < BANK.length); st.discard = st.discard.filter(i => i < BANK.length);
+    if (missing.length) st.deck = shuffle([...st.deck, ...missing], rnd);
+    return missing.length;
+  }
+
+  return { shuffle, newState, startGame, guess, stop, canStop, revealNext, nextGame, newSeries, hand, topUp };
+})();
+const $ = id => document.getElementById(id);
+const KEY = 'hunch21-holiday:v1', SKEY = 'hunch21-holiday:setup';
+let st = null;
+let setup = { count: 4, names: [], mode: 'single' };
+
+function load(k) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function save() { try { if (st) localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+function saveSetup() { try { localStorage.setItem(SKEY, JSON.stringify(setup)); } catch (e) {} }
+function clearSaved() { try { localStorage.removeItem(KEY); } catch (e) {} }
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined && text !== null) e.textContent = text; return e; }
+function pill(kind, text) { return el('span', 'pill ' + kind, text); }
+function button(text, cls, fn) { const b = el('button', cls, text); b.type = 'button'; b.addEventListener('click', fn); return b; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function listNames(a) { return a.length <= 1 ? (a[0] || '') : a.length === 2 ? `${a[0]} and ${a[1]}` : `${a.slice(0, -1).join(', ')}, and ${a[a.length - 1]}`; }
+function plural(n, w) { return `${n} ${w}${n === 1 ? '' : 's'}`; }
+function announce(t) { const l = $('live'); l.textContent = ''; setTimeout(() => { l.textContent = t; }, 40); }
+function show(id) { for (const s of ['s-setup', 's-link', 's-handoff', 's-turn', 's-reveal', 's-results']) $(s).hidden = s !== id; }
+function focusIn(id) { const h = $(id).querySelector('[tabindex="-1"]'); window.scrollTo({ top: 0 }); if (h) h.focus({ preventScroll: true }); }
+function setMeta() { $('meta').textContent = st ? (st.tiebreak && st.game && st.game.lastAction.tiebreak ? 'Tiebreaker' : `Game ${st.gameNo}`) : ''; }
+
+function render() {
+  save();
+  $('quitBox').hidden = !st;
+  if (!st) { if (linkUI) renderLink(); else renderSetup(); return; }
+  if (st.link && st.screen === 'handoff') st.screen = 'turn'; // linked phones skip the pass-the-phone screen
+  if (st.screen === 'handoff') renderHandoff();
+  else if (st.screen === 'turn') renderTurn();
+  else if (st.screen === 'reveal') renderReveal();
+  else if (st.screen === 'results') renderResults();
+  else renderSetup();
+}
+
+/* ---------- setup ---------- */
+function renderSetup() {
+  show('s-setup'); $('meta').textContent = '';
+  $('bankCount').textContent = BANK.length;
+  const saved = load(KEY);
+  const resumable = saved && saved.game && !(saved.screen === 'results' && (saved.mode === 'single' || saved.champion !== null));
+  $('resumeBox').hidden = !resumable;
+  if (resumable) $('resumeText').textContent = `${saved.players.map(p => p.name).join(', ')} · ${saved.mode === 'series' ? 'Series to 3 points' : 'One game'} · Game ${saved.gameNo}${saved.link ? ` · Linked game ${saved.link.code}` : ''}`;
+  $('countOut').value = setup.count;
+  $('minus').disabled = setup.count <= 2; $('plus').disabled = setup.count >= 6;
+  const box = $('names'); box.innerHTML = '';
+  for (let i = 0; i < setup.count; i++) {
+    const f = el('div', 'field'); const l = el('label', null, `Player ${i + 1}`); l.htmlFor = 'name' + i;
+    const inp = el('input'); inp.type = 'text'; inp.id = 'name' + i; inp.maxLength = 14; inp.autocomplete = 'off'; inp.placeholder = `Player ${i + 1}`; inp.value = setup.names[i] || '';
+    inp.addEventListener('input', () => { setup.names[i] = inp.value; saveSetup(); });
+    f.append(l, inp); box.append(f);
+  }
+  $('modeSingle').setAttribute('aria-pressed', setup.mode === 'single'); $('modeSeries').setAttribute('aria-pressed', setup.mode === 'series');
+  $('modeHelp').textContent = setup.mode === 'single' ? 'One round of guessing. Closest to 21 without going over takes it.' : 'Win a game for 2 points, finish at or under 21 for 1 point. First to 3 points wins the series, and exactly 21 wins it instantly.';
+}
+function cleanNames(raw, count) {
+  const names = []; const seen = {};
+  for (let i = 0; i < count; i++) {
+    let n = (raw[i] || '').trim() || `Player ${i + 1}`;
+    if (seen[n]) n = `${n} ${++seen[n]}`; else seen[n] = 1;
+    names.push(n);
+  }
+  return names;
+}
+function startNew() {
+  st = Engine.newState(cleanNames(setup.names, setup.count), setup.mode); Engine.startGame(st); render();
+}
+
+/* ---------- hand-off ---------- */
+function lastText() {
+  const la = st.game.lastAction;
+  if (la.type === 'start') return la.tiebreak ? `Tiebreaker game. ${la.who} goes first.` : `Game ${la.gameNo} of ${st.mode === 'series' ? 'the series' : 'Hunch 21 Holiday'}. ${la.who} goes first.`;
+  if (la.type === 'guess') return `${la.who} guessed ${la.v}. Running total of guesses: ${la.est} from ${plural(la.cards, 'card')}.`;
+  return `${la.who} stopped at ${la.est} with ${plural(la.cards, 'card')}. The question passes along.`;
+}
+function renderHandoff() {
+  show('s-handoff'); setMeta();
+  const g = st.game, name = st.players[g.current].name, t = lastText();
+  $('lastAction').textContent = t; $('handName').textContent = name;
+  $('handBtn').textContent = `I'm ${name}. Show me the question`;
+  focusIn('s-handoff'); announce(`${t} Pass the phone to ${name}.`);
+}
+
+/* ---------- turn ---------- */
+function renderTurn() {
+  show('s-turn'); setMeta();
+  const g = st.game, i = g.current, p = st.players[i], h = g.hands[i];
+  const strip = $('strip'); strip.innerHTML = '';
+  st.players.forEach((pl, idx) => {
+    const inGame = g.active.includes(idx), hh = g.hands[idx];
+    const c = el('div', 'chip' + (idx === i ? ' current' : '') + ((!inGame || hh.stopped) ? ' stopped' : ''));
+    c.append(el('div', 'name', pl.name), el('div', 'est num-tab', inGame ? String(hh.est) : '–'), el('div', 'sub', inGame ? plural(hh.cards.length, 'card') : 'sitting out'));
+    if (inGame && idx === i) c.append(pill('turn', st.link ? 'Up now' : 'Your turn')); else if (inGame && hh.stopped) c.append(pill('stop', 'Stopped'));
+    if (st.mode === 'series') c.append(pill('pts', plural(pl.points, 'pt')));
+    strip.append(c);
+  });
+  const linked = !!st.link;
+  $('turnWho').textContent = linked ? `${p.name}'s turn` : `${p.name}, your guess`;
+  $('linkLast').hidden = !linked; if (linked) $('linkLast').textContent = lastText();
+  $('turnTally').innerHTML = `Guesses so far: <b class="num-tab">${h.est}</b> · ${plural(h.cards.length, 'card')}`;
+  const q = BANK[g.pending]; $('cardQ').textContent = q.q;
+  const note = $('cardNote');
+  if (g.passedFrom) { note.hidden = false; note.textContent = linked ? `${g.passedFrom} stopped, so this question passes to ${p.name}.` : `${g.passedFrom} stopped, so this question comes to you.`; } else note.hidden = true;
+  const card = $('card'); card.classList.remove('flip'); void card.offsetWidth; card.classList.add('flip');
+  const pad = $('pad'); pad.innerHTML = '';
+  for (let v = 0; v <= 10; v++) {
+    const b = button(String(v), 'num num-tab', () => move(() => Engine.guess(st, v, R())));
+    b.setAttribute('aria-label', linked ? `${p.name} guessed ${v}` : `Guess ${v}`); pad.append(b);
+  }
+  const ok = Engine.canStop(st);
+  const s = button('Stop', 'num stopbtn', () => move(() => Engine.stop(st, R())));
+  s.disabled = !ok; s.setAttribute('aria-label', ok ? (linked ? `${p.name} stops at ${h.est}` : `Stop here with ${h.est}`) : 'Stop becomes available once you hold two cards');
+  $('pad').setAttribute('aria-label', linked ? `${p.name}'s guess, 0 to 10` : 'Your guess, 0 to 10');
+  pad.append(s);
+  if (linked) $('padHint').textContent = ok ? `${p.name} says a guess or "stop" out loud, and everyone taps it in.` : `${p.name} says a guess out loud, and everyone taps it in. ${p.name} can stop from the third card on.`;
+  else $('padHint').textContent = ok ? `Guess this one, or stop here with ${h.est}.` : (h.cards.length === 0 ? 'Tap your guess. The real answer stays hidden until the end.' : 'Take this card too. You can stop from your third card on.');
+  linkTools($('linkTools'), true);
+  focusIn('s-turn'); announce(linked ? `${lastText()} ${p.name}'s turn: ${q.q}` : `${p.name}: ${q.q}`);
+}
+
+/* ---------- reveal ---------- */
+function revealPanel(i) {
+  const g = st.game, r = g.result, h = g.hands[i], p = st.players[i], total = r.totals[i];
+  const sec = el('section', 'rev');
+  const head = el('header'); const h3 = el('h3', null, p.name); h3.tabIndex = -1;
+  head.append(h3, el('span', 'badge ' + (total > 21 ? 'bust' : total === 21 ? 'exact' : 'safe'), total > 21 ? 'Bust' : total === 21 ? 'Exactly 21!' : 'Safe'));
+  const ol = el('ol');
+  h.cards.forEach((c, k) => {
+    const q = BANK[c], li = el('li'), txt = el('div'); txt.style.minWidth = '0';
+    txt.append(el('div', null, q.q), el('div', 'why', q.why), el('div', 'small muted', `${p.name} guessed ${h.guesses[k]}`));
+    li.append(el('div', 'val num-tab', String(q.a)), txt); ol.append(li);
+  });
+  const tot = el('div', 'total num-tab'); tot.innerHTML = `Actual total ${total} <small>(guesses added up to ${h.est})</small>`;
+  sec.append(head, ol, tot); return sec;
+}
+function renderReveal() {
+  show('s-reveal'); setMeta();
+  const g = st.game, r = g.result, list = $('revealList'); list.innerHTML = '';
+  for (let k = 0; k < g.revealStep; k++) list.append(revealPanel(r.order[k]));
+  const btn = $('revealBtn');
+  btn.textContent = g.revealStep < r.order.length ? `Flip ${st.players[r.order[g.revealStep]].name}'s cards` : 'See the results';
+  btn.onclick = () => { Engine.revealNext(st); render(); };
+  linkTools($('revealTools'), g.revealStep === 0);
+  if (g.revealStep === 0) focusIn('s-reveal');
+  else { const last = list.lastElementChild; last.querySelector('h3').focus({ preventScroll: true }); last.scrollIntoView({ block: 'start', behavior: 'smooth' }); announce(`${st.players[r.order[g.revealStep - 1]].name}: actual total ${r.totals[r.order[g.revealStep - 1]]}.`); }
+}
+
+/* ---------- results ---------- */
+function renderResults() {
+  show('s-results'); setMeta();
+  const g = st.game, r = g.result, series = st.mode === 'series';
+  const names = idx => idx.map(i => st.players[i].name);
+  const b = $('banner'); b.innerHTML = ''; b.tabIndex = -1;
+  let big, sub = '';
+  if (r.winners.length === 0) { big = 'Everybody went over 21.'; sub = 'Nobody wins this one.'; }
+  else if (r.winners.length === 1) big = `${st.players[r.winners[0]].name} wins with ${r.best}!`;
+  else { big = `${listNames(names(r.winners))} tie at ${r.best}.`; sub = 'Tied players share the win.'; }
+  if (series) {
+    if (st.champion !== null) sub = g.instant ? `Exactly 21 wins the series on the spot. ${st.players[st.champion].name} takes it!` : `${st.players[st.champion].name} wins the series!`;
+    else if (st.tiebreak) sub = `${listNames(names(st.tiebreak))} are tied at the top with ${st.players[st.tiebreak[0]].points} points. A tiebreaker game decides it.`;
+  }
+  b.append(el('div', 'big', big)); if (sub) b.append(el('div', null, sub));
+  const rank = i => { if (!g.active.includes(i)) return 99; const t = r.totals[i]; return t > 21 ? 50 + (t - 21) : 21 - t; };
+  const rows = st.players.map((p, i) => ({ i, p, inGame: g.active.includes(i) }));
+  rows.sort((a, c) => series ? ((c.p.points - a.p.points) || (rank(a.i) - rank(c.i))) : (rank(a.i) - rank(c.i)));
+  $('standingsTitle').textContent = series ? 'Series standings' : 'This game';
+  let body = '';
+  for (const { i, p, inGame } of rows) {
+    const tot = inGame ? r.totals[i] : null;
+    let res = !inGame ? 'Sat out' : tot > 21 ? 'Bust' : r.winners.includes(i) ? 'Winner' : 'Safe';
+    if (series && st.champion === i) res = 'Series winner';
+    const d = series && g.delta && g.delta[i] !== undefined ? ` (+${g.delta[i]})` : '';
+    body += `<tr class="${st.champion === i ? 'champ' : ''}"><td>${esc(p.name)}</td><td class="n">${inGame ? tot : '–'}</td><td>${res}</td>${series ? `<td class="n">${p.points}${d}</td>` : ''}</tr>`;
+  }
+  $('standings').innerHTML = `<thead><tr><th>Player</th><th class="n">Total</th><th>Result</th>${series ? '<th class="n">Points</th>' : ''}</tr></thead><tbody>${body}</tbody>`;
+  $('standingsNote').textContent = series ? 'Win a game for 2 points, finish at or under 21 for 1, go over for 0. First to 3 wins.' : 'Everyone can see the cards again on the reveal screen next game. Same players, new questions.';
+  const a = $('resultActions'); a.innerHTML = '';
+  if (series && st.champion === null) a.append(button(st.tiebreak ? 'Play the tiebreaker' : 'Next game', 'btn btn-accent', () => { st.undo = []; Engine.nextGame(st, R()); render(); }));
+  else if (series) a.append(button('New series, same players', 'btn btn-accent', () => { st.undo = []; Engine.newSeries(st, R()); render(); }));
+  else a.append(button('Play again, same players', 'btn btn-accent', () => { st.undo = []; Engine.nextGame(st, R()); render(); }));
+  if (st.link) a.append(el('p', 'check', `Linked game ${st.link.code}. Tap the same button on every phone to stay matched.`));
+  a.append(button(st.link ? 'Leave the linked game' : 'Change players', 'btn', () => { st = null; clearSaved(); render(); }));
+  window.scrollTo({ top: 0 }); b.focus({ preventScroll: true });
+  announce(big + ' ' + sub);
+}
+
+/* ---------- linked games (one game mirrored on several phones) ---------- */
+// Every phone builds the deck from the same seed and replays the same taps, so they deal identical cards.
+const B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+let linkUI = null; // the host or join screen while it is open
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+let deckTagCache = null;
+function deckTag() { if (deckTagCache === null) deckTagCache = fnv(BANK.map(b => b.a + '|' + b.q).join('\n')) & 15; return deckTagCache; }
+function mkRnd(link) {
+  return () => {
+    link.rng = (link.rng + 0x6D2B79F5) >>> 0; let t = link.rng;
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function R() { return st && st.link ? mkRnd(st.link) : undefined; }
+function checkBits(seed, count, mode, tag) { return fnv(`holiday.${seed}.${count}.${mode}.${tag}`) & 31; }
+function encodeCode(seed, count, mode) {
+  const tag = deckTag(), m = mode === 'series' ? 1 : 0;
+  let n = (((seed * 8 + (count - 2)) * 2 + m) * 16 + tag) * 32 + checkBits(seed, count, m, tag), s = '';
+  for (let i = 0; i < 8; i++) { s = B32[n % 32] + s; n = Math.floor(n / 32); }
+  return s.slice(0, 4) + '-' + s.slice(4);
+}
+function decodeCode(raw) {
+  const s = String(raw || '').toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+  if (!s) return { err: 'Type the code from the host first.' };
+  let n = 0;
+  for (const ch of s) { const v = B32.indexOf(ch); if (v < 0) return { err: `The code doesn't use the character ${ch}. Check it and try again.` }; n = n * 32 + v; }
+  if (s.length !== 8) return { err: 'A game code has 8 letters and numbers, like K7QM-2XRD.' };
+  const chk = n % 32; n = Math.floor(n / 32);
+  const tag = n % 16; n = Math.floor(n / 16);
+  const m = n % 2; n = Math.floor(n / 2);
+  const count = n % 8 + 2, seed = Math.floor(n / 8);
+  if (count > 6 || checkBits(seed, count, m, tag) !== chk) return { err: "That code doesn't check out. Ask the host to read it again, slowly, and make sure you're both playing the same edition of Hunch 21 (regular or holiday)." };
+  if (tag !== deckTag()) return { err: 'This code comes from a phone with a different set of questions. Make sure you are both in the same edition of Hunch 21, and that both phones show the same Build number at the bottom of the setup screen. To update, open the game while online, close it all the way, and open it again.' };
+  return { seed, count, mode: m ? 'series' : 'single' };
+}
+function newSeed() {
+  try { return crypto.getRandomValues(new Uint32Array(1))[0] >>> 5; } catch (e) { return Math.floor(Math.random() * 134217728); }
+}
+function startLinked(seed, count, mode, rawNames) {
+  const link = { code: encodeCode(seed, count, mode), seed, rng: Math.imul(seed ^ 0x5bd1e995, 0x9E3779B1) >>> 0 };
+  const rnd = mkRnd(link);
+  st = Engine.newState(cleanNames(rawNames, count), mode, rnd);
+  st.link = link; st.undo = [];
+  Engine.startGame(st, rnd);
+  linkUI = null; render();
+}
+// One move, with a snapshot so a mistap can be undone. Linked games keep the last 8 snapshots.
+function move(fn) {
+  if (!st.link) { if (fn()) render(); return; }
+  const { undo, ...rest } = st, snap = JSON.stringify(rest);
+  if (fn()) { st.undo = (undo || []).concat(snap).slice(-8); render(); }
+}
+function undoLast() {
+  const u = st.undo || []; if (!u.length) return;
+  const prev = JSON.parse(u[u.length - 1]); prev.undo = u.slice(0, -1); st = prev;
+  render(); announce('Last tap undone. ' + lastText());
+}
+function matchCode() {
+  const g = st.game;
+  const h = fnv(JSON.stringify([st.gameNo, st.deck.length, st.discard.length, st.link.rng, g.current, g.pending,
+    g.active.map(i => [g.hands[i].cards, g.hands[i].guesses, g.hands[i].stopped]), st.players.map(p => p.points)]));
+  return B32[h & 31] + B32[(h >>> 5) & 31] + B32[(h >>> 10) & 31];
+}
+function linkTools(box, canUndo) {
+  box.hidden = !st.link; box.innerHTML = ''; if (!st.link) return;
+  const u = button('Undo last tap', 'btn', undoLast);
+  u.disabled = !(canUndo && st.undo && st.undo.length);
+  const c = el('p', 'check'); c.innerHTML = `Match check <b>${matchCode()}</b> · should be the same on every phone`;
+  box.append(u, c);
+}
+function nameFields(box, count, names, note) {
+  box.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const f = el('div', 'field'); const l = el('label', null, i === 0 ? 'Player 1 (goes first)' : `Player ${i + 1}`); l.htmlFor = 'lname' + i;
+    const inp = el('input'); inp.type = 'text'; inp.id = 'lname' + i; inp.maxLength = 14; inp.autocomplete = 'off'; inp.placeholder = `Player ${i + 1}`; inp.value = names[i] || '';
+    inp.addEventListener('input', () => { names[i] = inp.value; });
+    f.append(l, inp); box.append(f);
+  }
+}
+function renderLink() {
+  show('s-link'); $('meta').textContent = '';
+  const body = $('linkBody'); body.innerHTML = '';
+  const back = button('Back to setup', 'btn', () => { linkUI = null; render(); });
+  if (linkUI.kind === 'host') {
+    $('linkTitle').textContent = 'Your linked game';
+    const code = encodeCode(linkUI.seed, setup.count, setup.mode), names = cleanNames(setup.names, setup.count);
+    const intro = el('p', null, 'Get on a call with the other players and read them this code. On their phones, they tap Join with a code.');
+    const big = el('div', 'codebig', code); big.setAttribute('aria-label', 'Game code ' + code.split('').join(' '));
+    const sub = el('p', 'muted small', `${plural(setup.count, 'player')} · ${setup.mode === 'series' ? 'Series to 3 points' : 'One game'}`);
+    const seatHead = el('p', null, 'Players, in turn order:');
+    const ol = el('ol', 'seats'); names.forEach(n => ol.append(el('li', null, n)));
+    const tip = el('p', 'muted small', 'Everyone types the names in this same order, because the phones deal by seat. To change names or the number of players, go back to setup first.');
+    const shareMsg = el('p', 'msg good'); shareMsg.setAttribute('role', 'status');
+    const text = `Let's play Hunch 21 Holiday! Open dnadorff.github.io/hunch21-holiday, tap Join with a code, and enter ${code}. Players in order: ${names.join(', ')}.`;
+    const share = button('Share the code by text', 'btn', async () => {
+      try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(text); shareMsg.textContent = 'Copied. Paste it into a text message.'; } catch (e) { shareMsg.textContent = text; }
+    });
+    const go = button("Everyone's in. Deal the first card", 'btn btn-accent', () => startLinked(linkUI.seed, setup.count, setup.mode, setup.names));
+    body.append(intro, big, sub, seatHead, ol, tip, share, shareMsg, go, back);
+  } else {
+    $('linkTitle').textContent = 'Join a linked game';
+    const f = el('div', 'field'); const l = el('label', null, 'Game code from the host'); l.htmlFor = 'codeIn';
+    const inp = el('input', 'code'); inp.type = 'text'; inp.id = 'codeIn'; inp.maxLength = 9; inp.autocomplete = 'off'; inp.spellcheck = false;
+    inp.setAttribute('autocapitalize', 'characters'); inp.placeholder = 'XXXX-XXXX'; inp.value = linkUI.code || '';
+    f.append(l, inp);
+    const msg = el('p', 'msg'); msg.setAttribute('role', 'alert');
+    const names = el('div', 'names'); const after = el('div', 'stack');
+    const check = button('Check the code', 'btn btn-primary', () => {
+      linkUI.code = inp.value; const r = decodeCode(inp.value);
+      if (r.err) { linkUI.ok = null; msg.className = 'msg bad'; msg.textContent = r.err; after.hidden = true; return; }
+      linkUI.ok = r; msg.className = 'msg good';
+      msg.textContent = `Code works. ${plural(r.count, 'player')}, ${r.mode === 'series' ? 'series to 3 points' : 'one game'}.`;
+      after.hidden = false; nameFields(names, r.count, linkUI.names, true);
+      const first = names.querySelector('input'); if (first) first.focus();
+    });
+    inp.addEventListener('input', () => { if (linkUI.ok) { linkUI.ok = null; after.hidden = true; msg.textContent = ''; } });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') check.click(); });
+    const tip = el('p', 'muted small', "Type everyone's names in the same order as the host's phone. The host's screen lists them.");
+    const go = button('Deal the first card', 'btn btn-accent', () => { const r = linkUI.ok; if (r) startLinked(r.seed, r.count, r.mode, linkUI.names); });
+    after.append(tip, names, go); after.hidden = true;
+    body.append(el('p', null, "Get on a call with the other players, then type the code the host reads out."), f, check, msg, after, back);
+    if (linkUI.ok) check.click();
+  }
+  focusIn('s-link');
+}
+
+/* ---------- wiring ---------- */
+$('minus').addEventListener('click', () => { if (setup.count > 2) { setup.count--; saveSetup(); renderSetup(); } });
+$('plus').addEventListener('click', () => { if (setup.count < 6) { setup.count++; saveSetup(); renderSetup(); } });
+$('modeSingle').addEventListener('click', () => { setup.mode = 'single'; saveSetup(); renderSetup(); });
+$('modeSeries').addEventListener('click', () => { setup.mode = 'series'; saveSetup(); renderSetup(); });
+$('startBtn').addEventListener('click', startNew);
+$('hostBtn').addEventListener('click', () => { linkUI = { kind: 'host', seed: newSeed() }; render(); });
+$('joinBtn').addEventListener('click', () => { linkUI = { kind: 'join', code: '', names: [], ok: null }; render(); });
+$('resumeBtn').addEventListener('click', () => { st = load(KEY); if (st && st.link && !Array.isArray(st.undo)) st.undo = []; linkUI = null; render(); });
+$('discardBtn').addEventListener('click', () => { clearSaved(); renderSetup(); });
+$('handBtn').addEventListener('click', () => { st.screen = 'turn'; render(); });
+$('rulesBtn').addEventListener('click', () => { resetQuit(); $('rules').showModal(); });
+$('rulesClose').addEventListener('click', () => $('rules').close());
+function resetQuit() {
+  const q = $('quitBox'); q.innerHTML = '';
+  q.append(button('End this game and go to setup', 'btn', () => {
+    q.innerHTML = '';
+    q.append(button('Yes, end it', 'btn btn-accent', () => { $('rules').close(); st = null; clearSaved(); render(); }), button('Keep playing', 'btn', resetQuit));
+  }));
+}
+function boot(data) {
+  setup = (data && data.setup) || load(SKEY) || { count: 4, names: [], mode: 'single' };
+  if (!Array.isArray(setup.names)) setup.names = [];
+  setup.count = Math.min(6, Math.max(2, Number(setup.count) || 4));
+  if (setup.mode !== 'series') setup.mode = 'single';
+  st = (data && data.state) || load(KEY);
+  if (!st || st.v !== 1 || !st.game) st = null;
+  // Linked games keep their deck exactly as dealt, so every phone stays matched.
+  if (st && !st.link) { try { Engine.topUp(st); } catch (e) { st = null; } }
+  if (st && st.link && !Array.isArray(st.undo)) st.undo = [];
+  render();
+}
+if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ state: st, setup }));
+if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot); else boot((window.claude && window.claude.hot && window.claude.hot.data) || null);
+</script>
+<script>
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('./sw.js').catch(function () {}); });
+}
+</script>
+</body>
+</html>
